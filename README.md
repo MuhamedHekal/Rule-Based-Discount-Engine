@@ -133,7 +133,7 @@ src/
 5. **Output:**  
    - Log discount calculation events with timestamps and log levels.  
    - Load the enriched transaction data including final price into a target database table.
-   ![database](photo/database.png)
+   ![database](photo/Database.png)
 
 ---
 
