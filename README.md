@@ -161,8 +161,8 @@ src/
 1. Clone the repo:
 
    ```bash
-   git clone https://github.com/MuhamedHekal/Calculate-Discount-Scala.git
-   cd Calculate-Discount-Scala
+   git clone https://github.com/MuhamedHekal/Rule-Based-Discount-Engine.git
+   cd Rule-Based-Discount-Engine
    ```
 
 2. Build and run the Scala project using sbt or your preferred Scala build tool.
