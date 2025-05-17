@@ -9,6 +9,8 @@ CREATE TABLE order_discounts (
     channel VARCHAR(50) NOT NULL,
     payment_method VARCHAR(50) NOT NULL,
     average_discount DECIMAL(5,2) NOT NULL,
+    TotalPrice DECIMAL(5,2) NOT NULL,
     processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
 );
 
