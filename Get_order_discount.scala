@@ -93,8 +93,8 @@ object Get_order_discount extends App {
         val sql = """
         INSERT INTO order_discounts (
           order_timestamp, product_name, expiry_date, quantity,
-          unit_price, channel, payment_method, average_discount
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          unit_price, channel, payment_method, average_discount , TotalPrice
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)
       """
 
         pstmt = conn.prepareStatement(sql)
@@ -108,6 +108,7 @@ object Get_order_discount extends App {
         pstmt.setString(6, order.channel)
         pstmt.setString(7, order.payment_method)
         pstmt.setDouble(8, avgDiscount)
+        pstmt.setDouble(9, (order.quantity * order.unit_price) - (order.quantity * order.unit_price * (avgDiscount /100)))
 
         pstmt.executeUpdate()
       } catch {
