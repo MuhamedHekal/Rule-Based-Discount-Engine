@@ -9,7 +9,6 @@ It evaluates sales transactions against multiple discount qualifying rules and c
 The system supports combining multiple applicable discounts by averaging the top two qualifying discounts and produces the final discounted price per transaction.
 
 ## Features
-
 - Pure functional programming principles:  
   - Immutable data (no vars, only vals)  
   - No side effects in core logic  
@@ -134,6 +133,7 @@ src/
 5. **Output:**  
    - Log discount calculation events with timestamps and log levels.  
    - Load the enriched transaction data including final price into a target database table.
+   ![database](photo/database.png)
 
 ---
 
@@ -143,6 +143,7 @@ src/
   ```
   TIMESTAMP     LOGLEVEL      MESSAGE
   ```
+  ![logs](photo/logs.png)
 
 ---
 
