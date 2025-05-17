@@ -1,8 +1,9 @@
 package Labs.Project
 import java.{lang, time}
-import java.time.{Instant, LocalDate,ZoneId, ZonedDateTime}
+import java.time.{Instant, LocalDate, ZoneId, ZonedDateTime}
 import scala.io.Source
 import java.sql.{Connection, DriverManager, PreparedStatement}
+import java.time.temporal.ChronoUnit
 object Get_order_discount extends App {
     // cass class to store orders
     case class Order(
@@ -23,11 +24,12 @@ object Get_order_discount extends App {
     // check for expiry date
     def expireDate_rule(order: Order) : Boolean = {
       val now = LocalDate.now()
-      if (now.until(order.expiry_date).getDays() < 30 )true else false
+      val remainingDays = ChronoUnit.DAYS.between(now, order.expiry_date)
+      remainingDays < 30 & remainingDays > 0
     }
     def expireDate_discount(order: Order) : Double = {
       val now = LocalDate.now()
-      val remaining_days = now.until(order.expiry_date).getDays()
+      val remaining_days = ChronoUnit.DAYS.between(now, order.expiry_date)
       //println(s" now is $now order expiry date ${order.expiry_date} and the remainging days is ${remaining_days} ")
       if (remaining_days >= 30) 0.toDouble else (30 - remaining_days).toDouble
     }
@@ -149,7 +151,7 @@ object Get_order_discount extends App {
       val avgDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
 
       // Store complete order data with average discount
-      //storeCompleteOrder(order, avgDiscount)
+      storeCompleteOrder(order, avgDiscount)
 
       // Print confirmation
       println(s"Stored order for ${order.product_name} with ${avgDiscount}% average discount")
