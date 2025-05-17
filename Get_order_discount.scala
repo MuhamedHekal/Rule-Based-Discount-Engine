@@ -13,7 +13,7 @@ object Get_order_discount extends App {
           channel : String,
           payment_method : String)
     // read the orders in list of string each index has one order
-    val lines: List[String] = Source.fromFile("src/main/scala/labs/Project/TRX1000.csv").getLines().toList.drop(1)
+    val lines: List[String] = Source.fromFile("src/main/scala/labs/Calculate-Discount-Scala/TRX1000.csv").getLines().toList.drop(1)
     //print(orders)
     def mapLinesToOrders(line : String): Order = {
       val data = line.split(',')
@@ -79,12 +79,23 @@ object Get_order_discount extends App {
     def applyRules(order: Order, tuple: List[(Order => Boolean, Order=> Double)]): List[Double] = {
       tuple.collect {case (check, calcDis) if check(order) => calcDis(order)}
   }
-    lines
-      .map(mapLinesToOrders)
-      .map(x => applyRules(x,rules_tuple))
-      .map(_.sortWith(_ > _).take(2))
-      .map { discounts => if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0}
-      .foreach(println)
+  lines
+    .map(mapLinesToOrders)  // Convert each line to an Order
+    .map { order =>
+      // Calculate discounts for this order
+      val discounts = applyRules(order, rules_tuple)
+        .sortWith(_ > _)
+        .take(2)
+      val averageDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
+
+      // Return both order and discount info
+      (order, discounts, averageDiscount)
+    }
+    .foreach { case (order, discounts, avgDiscount) =>
+      println(s"Order: ${order}")  // Print order details
+      println(s"Average discount: $avgDiscount %")  // Print the average
+      println("---")  // Separator
+    }
 
 
 
