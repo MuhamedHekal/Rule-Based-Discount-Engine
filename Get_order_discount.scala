@@ -2,6 +2,7 @@ package Labs.Project
 import java.{lang, time}
 import java.time.{Instant, LocalDate,ZoneId, ZonedDateTime}
 import scala.io.Source
+import java.sql.{Connection, DriverManager, PreparedStatement}
 object Get_order_discount extends App {
     // cass class to store orders
     case class Order(
@@ -24,7 +25,6 @@ object Get_order_discount extends App {
       val now = LocalDate.now()
       if (now.until(order.expiry_date).getDays() < 30 )true else false
     }
-
     def expireDate_discount(order: Order) : Double = {
       val now = LocalDate.now()
       val remaining_days = now.until(order.expiry_date).getDays()
@@ -37,18 +37,17 @@ object Get_order_discount extends App {
       val name = order.product_name.split(' ')(0)
       if ((name == "Wine") | (name == "Cheese")) true else false
     }
-
     def cheeseOrWine_Discount(order: Order) : Double = {
       val name = order.product_name.split(' ')(0)
       if (name == "Wine") 5.toDouble else if (name == "Cheese") 10.toDouble else 0.toDouble
     }
+
     // check for 23 march rule
     def _23rdOfMarch_rule(order: Order) : Boolean = {
       val order_date = order.timestamp
       val zonedDateTime = ZonedDateTime.ofInstant(order_date,ZoneId.of("UTC"))
       if ((zonedDateTime.getDayOfMonth == 23) & (zonedDateTime.getMonthValue == 3)) true else false
     }
-
     def _23rdOfMarch_discount(order: Order) :Double = {
       val order_date = order.timestamp
       val zonedDateTime = ZonedDateTime.ofInstant(order_date,ZoneId.of("UTC"))
@@ -60,7 +59,6 @@ object Get_order_discount extends App {
       val quantity = order.quantity
       if (quantity >5) true else false
     }
-
     def moreThan5_discount(order: Order) : Double= {
       val quantity = order.quantity
       if ((quantity >= 6) & (quantity <= 9)) 5.toDouble
@@ -79,25 +77,64 @@ object Get_order_discount extends App {
     def applyRules(order: Order, tuple: List[(Order => Boolean, Order=> Double)]): List[Double] = {
       tuple.collect {case (check, calcDis) if check(order) => calcDis(order)}
   }
+
+
+    val dbUrl = "jdbc:postgresql://127.0.0.1:5432/postgres"
+    val dbUser = "postgres"
+    val dbPassword = "123"
+    // Function to store complete order with average discount
+    def storeCompleteOrder(order: Order, avgDiscount: Double): Unit = {
+      var conn: Connection = null
+      var pstmt: PreparedStatement = null
+
+      try {
+        conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)
+
+        val sql = """
+        INSERT INTO order_discounts (
+          order_timestamp, product_name, expiry_date, quantity,
+          unit_price, channel, payment_method, average_discount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      """
+
+        pstmt = conn.prepareStatement(sql)
+
+        // Set all order parameters
+        pstmt.setTimestamp(1, java.sql.Timestamp.from(order.timestamp))
+        pstmt.setString(2, order.product_name)
+        pstmt.setDate(3, java.sql.Date.valueOf(order.expiry_date))
+        pstmt.setInt(4, order.quantity)
+        pstmt.setDouble(5, order.unit_price)
+        pstmt.setString(6, order.channel)
+        pstmt.setString(7, order.payment_method)
+        pstmt.setDouble(8, avgDiscount)
+
+        pstmt.executeUpdate()
+      } catch {
+        case e: Exception =>
+          println(s"Failed to store order: ${e.getMessage}")
+      } finally {
+        if (pstmt != null) pstmt.close()
+        if (conn != null) conn.close()
+      }
+    }
+
+
+
   lines
-    .map(mapLinesToOrders)  // Convert each line to an Order
+    .map(mapLinesToOrders)
     .map { order =>
-      // Calculate discounts for this order
       val discounts = applyRules(order, rules_tuple)
         .sortWith(_ > _)
         .take(2)
-      val averageDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
+      val avgDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
 
-      // Return both order and discount info
-      (order, discounts, averageDiscount)
+      // Store complete order data with average discount
+      storeCompleteOrder(order, avgDiscount)
+
+      // Print confirmation
+      println(s"Stored order for ${order.product_name} with ${avgDiscount}% average discount")
+      avgDiscount
     }
-    .foreach { case (order, discounts, avgDiscount) =>
-      println(s"Order: ${order}")  // Print order details
-      println(s"Average discount: $avgDiscount %")  // Print the average
-      println("---")  // Separator
-    }
-
-
-
 
 }
