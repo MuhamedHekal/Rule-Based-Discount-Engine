@@ -67,11 +67,29 @@ object Get_order_discount extends App {
       else 0.toDouble
     }
 
+    // check fot channel
+    def from_app_rule(order: Order) :Boolean = {
+      if (order.channel == "App") true else false
+    }
+    def from_app_dicscount(order: Order) :Double = {
+      (((order.quantity + 4) / 5) * 5).toDouble
+    }
+
+    // check payment method
+    def visaCard_rule(order: Order) : Boolean = {
+      if (order.payment_method == "Visa") true else false
+    }
+    def visaCard_discount(order: Order) : Double = {
+      5.toDouble
+    }
+
     val rules_tuple = List(
       (expireDate_rule _, expireDate_discount _),
       (cheeseOrWine_rule _,cheeseOrWine_Discount _),
       (_23rdOfMarch_rule _,_23rdOfMarch_discount _),
-      (moreThan5_rule _,moreThan5_discount _)
+      (moreThan5_rule _,moreThan5_discount _),
+      (from_app_rule _, from_app_dicscount _),
+      (visaCard_rule _, visaCard_discount _)
     )
 
     def applyRules(order: Order, tuple: List[(Order => Boolean, Order=> Double)]): List[Double] = {
@@ -131,7 +149,7 @@ object Get_order_discount extends App {
       val avgDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
 
       // Store complete order data with average discount
-      storeCompleteOrder(order, avgDiscount)
+      //storeCompleteOrder(order, avgDiscount)
 
       // Print confirmation
       println(s"Stored order for ${order.product_name} with ${avgDiscount}% average discount")
