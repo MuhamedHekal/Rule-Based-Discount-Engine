@@ -1,5 +1,6 @@
-package Labs.Project
-import java.{lang, time}
+package Labs.CalculateDiscountScala
+import LoggerFactory.logger
+import scala.util.Using
 import java.time.{Instant, LocalDate, ZoneId, ZonedDateTime}
 import scala.io.Source
 import java.sql.{Connection, DriverManager, PreparedStatement}
@@ -15,7 +16,7 @@ object Get_order_discount extends App {
           channel : String,
           payment_method : String)
     // read the orders in list of string each index has one order
-    val lines: List[String] = Source.fromFile("src/main/scala/labs/Calculate-Discount-Scala/TRX1000.csv").getLines().toList.drop(1)
+    val lines: List[String] = Source.fromFile("src/main/scala/labs/CalculateDiscountScala/TRX1000.csv").getLines().toList.drop(1)
     //print(orders)
     def mapLinesToOrders(line : String): Order = {
       val data = line.split(',')
@@ -87,9 +88,9 @@ object Get_order_discount extends App {
 
     val rules_tuple = List(
       (expireDate_rule _, expireDate_discount _),
-      (cheeseOrWine_rule _,cheeseOrWine_Discount _),
-      (_23rdOfMarch_rule _,_23rdOfMarch_discount _),
-      (moreThan5_rule _,moreThan5_discount _),
+      (cheeseOrWine_rule _, cheeseOrWine_Discount _),
+      (_23rdOfMarch_rule _, _23rdOfMarch_discount _),
+      (moreThan5_rule _, moreThan5_discount _),
       (from_app_rule _, from_app_dicscount _),
       (visaCard_rule _, visaCard_discount _)
     )
@@ -104,54 +105,57 @@ object Get_order_discount extends App {
     val dbPassword = "123"
     // Function to store complete order with average discount
     def storeCompleteOrder(order: Order, avgDiscount: Double): Unit = {
-      var conn: Connection = null
-      var pstmt: PreparedStatement = null
+      val sql = """
+    INSERT INTO order_discounts (
+      order_timestamp, product_name, expiry_date, quantity,
+      unit_price, channel, payment_method, average_discount, TotalPrice
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  """
 
-      try {
-        conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)
+      Using(DriverManager.getConnection(dbUrl, dbUser, dbPassword)) { conn =>
+        Using(conn.prepareStatement(sql)) { pstmt =>
+          pstmt.setTimestamp(1, java.sql.Timestamp.from(order.timestamp))
+          pstmt.setString(2, order.product_name)
+          pstmt.setDate(3, java.sql.Date.valueOf(order.expiry_date))
+          pstmt.setInt(4, order.quantity)
+          pstmt.setDouble(5, order.unit_price)
+          pstmt.setString(6, order.channel)
+          pstmt.setString(7, order.payment_method)
+          pstmt.setDouble(8, avgDiscount)
+          val totalPrice = (order.quantity * order.unit_price) * (1 - avgDiscount / 100)
+          pstmt.setDouble(9, totalPrice)
 
-        val sql = """
-        INSERT INTO order_discounts (
-          order_timestamp, product_name, expiry_date, quantity,
-          unit_price, channel, payment_method, average_discount , TotalPrice
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)
-      """
-
-        pstmt = conn.prepareStatement(sql)
-
-        // Set all order parameters
-        pstmt.setTimestamp(1, java.sql.Timestamp.from(order.timestamp))
-        pstmt.setString(2, order.product_name)
-        pstmt.setDate(3, java.sql.Date.valueOf(order.expiry_date))
-        pstmt.setInt(4, order.quantity)
-        pstmt.setDouble(5, order.unit_price)
-        pstmt.setString(6, order.channel)
-        pstmt.setString(7, order.payment_method)
-        pstmt.setDouble(8, avgDiscount)
-        pstmt.setDouble(9, (order.quantity * order.unit_price) - (order.quantity * order.unit_price * (avgDiscount /100)))
-
-        pstmt.executeUpdate()
-      } catch {
-        case e: Exception =>
-          println(s"Failed to store order: ${e.getMessage}")
-      } finally {
-        if (pstmt != null) pstmt.close()
-        if (conn != null) conn.close()
+          pstmt.executeUpdate()
+        }
+      }.recover {
+        case e => println(s"Error storing order: ${e.getMessage}")
+        logger.severe(s"Error storing order: ${e.getMessage}")
       }
     }
 
 
-
+  logger.info(s"Read ${lines.length} orders from CSV file.")
   lines
     .map(mapLinesToOrders)
     .map { order =>
+      logger.info(s"Processing order for product: ${order.product_name}")
+
       val discounts = applyRules(order, rules_tuple)
         .sortWith(_ > _)
         .take(2)
+      logger.info(s"Discounts applied: ${discounts.mkString(", ")}")
+
       val avgDiscount = if (discounts.nonEmpty) discounts.sum / discounts.length else 0.0
+      logger.info(f"Average discount calculated: $avgDiscount%.2f%%")
 
       // Store complete order data with average discount
-      storeCompleteOrder(order, avgDiscount)
+      try {
+        storeCompleteOrder(order, avgDiscount)
+        logger.info(s"Stored order for ${order.product_name} with $avgDiscount% average discount.")
+      } catch {
+        case e: Exception =>
+          logger.severe(s"Failed to store order for ${order.product_name}: ${e.getMessage}")
+      }
 
       // Print confirmation
       println(s"Stored order for ${order.product_name} with ${avgDiscount}% average discount")
